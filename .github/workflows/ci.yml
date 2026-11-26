@@ -1,0 +1,89 @@
+# Integración continua: valida lint, build, tests unitarios y e2e en cada
+# push a main y en cada pull request hacia main.
+name: CI
+
+# Cuándo se ejecuta el workflow.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Si llega un push nuevo a la misma rama/PR, cancela la ejecución anterior
+# para no gastar minutos en código que ya quedó obsoleto.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Permisos mínimos: el workflow solo necesita leer el código.
+permissions:
+  contents: read
+
+jobs:
+  # El id y el name del job son estables: se pueden usar como "status check
+  # requerido" en la protección de la rama main.
+  test:
+    name: Lint, build y tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # PostgreSQL para los tests e2e. Se levanta como contenedor junto al job
+    # y GitHub espera a que el healthcheck lo marque como sano antes de seguir.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: api_usuarios_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      # Descarga el código del repositorio.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Instala Node 24 y cachea ~/.npm para acelerar las instalaciones.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # Instalación reproducible según package-lock.json.
+      - name: Instalar dependencias
+        run: npm ci
+
+      # Genera el cliente de Prisma (npm puede bloquear los install scripts,
+      # así que se hace explícito).
+      - name: Generar cliente de Prisma
+        run: npx prisma generate
+
+      # .env.test está en .gitignore, así que en CI se crea desde la plantilla
+      # (secretos ficticios, solo para tests). Los e2e lo leen y apuntan a la
+      # base api_usuarios_test del servicio postgres.
+      - name: Crear .env.test
+        run: cp .env.test.example .env.test
+
+      # Análisis estático (oxlint).
+      - name: Lint
+        run: npm run lint
+
+      # Compila TypeScript con el CLI de Nest.
+      - name: Build
+        run: npm run build
+
+      # Tests unitarios (Vitest, con mocks; no usan base de datos).
+      - name: Tests unitarios
+        run: npm test
+
+      # Tests e2e (Supertest). El globalSetup aplica las migraciones con
+      # `prisma migrate deploy` sobre la base de test antes de empezar.
+      - name: Tests e2e
+        run: npm run test:e2e
