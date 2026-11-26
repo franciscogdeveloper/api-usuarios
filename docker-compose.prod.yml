@@ -1,0 +1,39 @@
+# Compose de producción local. Uso:
+#   cp .env.prod.example .env.prod   (y reemplazar los CHANGE_ME)
+#   docker compose -f docker-compose.prod.yml up -d --build
+
+# Nombre propio del proyecto: así no choca con los contenedores/volúmenes de
+# desarrollo (proyecto "api-usuarios").
+name: api-usuarios-prod
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    # POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB salen de .env.prod.
+    env_file: .env.prod
+    # Sin "ports": la base solo es accesible desde la red interna de compose
+    # (la API), nunca desde el host.
+    volumes:
+      - pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    # Secretos y configuración. DATABASE_URL debe usar el host "db" (ver ejemplo).
+    env_file: .env.prod
+    # La API espera a que Postgres esté healthy antes de arrancar.
+    depends_on:
+      db:
+        condition: service_healthy
+    # 8080 en el host para no chocar con la instancia de desarrollo (3000).
+    ports:
+      - '8080:3000'
+
+volumes:
+  pgdata_prod:

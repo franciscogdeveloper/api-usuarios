@@ -87,3 +87,26 @@ jobs:
       # `prisma migrate deploy` sobre la base de test antes de empezar.
       - name: Tests e2e
         run: npm run test:e2e
+
+  # Segundo job: comprueba que la imagen de producción se construye
+  # correctamente (sin publicarla). Corre en paralelo al job "test".
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Buildx permite usar la caché de GitHub Actions entre ejecuciones.
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build de la imagen (sin push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: api-usuarios:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
