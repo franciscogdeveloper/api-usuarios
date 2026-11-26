@@ -11,9 +11,12 @@ import {
   ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
+  ApiTooManyRequestsResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { envInt } from '../common/throttle.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Public } from '../common/decorators/public.decorator.js';
 import type { JwtRefreshPayload } from '../common/types/jwt-payload.js';
@@ -29,6 +32,9 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Public()
+  @Throttle({
+    default: { limit: envInt('REGISTER_THROTTLE_LIMIT'), ttl: 60_000 },
+  })
   @ApiCreatedResponse({
     description: 'Usuario creado; devuelve tokens y usuario público',
   })
@@ -38,8 +44,12 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: envInt('LOGIN_THROTTLE_LIMIT'), ttl: 60_000 } })
   @ApiOkResponse({ description: 'Tokens y usuario público' })
   @ApiUnauthorizedResponse({ description: 'Credenciales inválidas' })
+  @ApiTooManyRequestsResponse({
+    description: 'Demasiados intentos o cuenta bloqueada (header Retry-After)',
+  })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto) {

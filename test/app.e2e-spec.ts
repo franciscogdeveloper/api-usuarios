@@ -261,6 +261,91 @@ describe('API Usuarios (e2e)', () => {
     });
   });
 
+  describe('bloqueo de cuenta', () => {
+    it('5 fallos bloquean: login correcto -> 429 con Retry-After; unlock -> 204', async () => {
+      const reg = await register();
+      for (let i = 0; i < 5; i++) {
+        await login({ email: ANA.email, password: 'Wrong123' }).expect(401);
+      }
+      const locked = await login({
+        email: ANA.email,
+        password: ANA.password,
+      }).expect(429);
+      expect(Number(locked.headers['retry-after'])).toBeGreaterThan(0);
+      expect(locked.body.message).toBe(
+        'Cuenta bloqueada temporalmente. Intenta más tarde.',
+      );
+
+      await http()
+        .post('/api/users/' + reg.body.user.id + '/unlock')
+        .set(auth(reg.body.accessToken))
+        .expect(403);
+      const adm = await login(ADMIN);
+      await http()
+        .post('/api/users/' + reg.body.user.id + '/unlock')
+        .set(auth(adm.body.accessToken))
+        .expect(204);
+      await login({ email: ANA.email, password: ANA.password }).expect(200);
+    });
+
+    it('unlock: UUID inválido -> 400, inexistente -> 404', async () => {
+      const adm = await login(ADMIN);
+      const t = auth(adm.body.accessToken);
+      await http().post('/api/users/abc/unlock').set(t).expect(400);
+      await http()
+        .post('/api/users/00000000-0000-4000-8000-000000000000/unlock')
+        .set(t)
+        .expect(404);
+    });
+
+    it('un login correcto reinicia el contador', async () => {
+      await register();
+      for (let i = 0; i < 4; i++) {
+        await login({ email: ANA.email, password: 'Wrong123' }).expect(401);
+      }
+      await login({ email: ANA.email, password: ANA.password }).expect(200);
+      for (let i = 0; i < 4; i++) {
+        await login({ email: ANA.email, password: 'Wrong123' }).expect(401);
+      }
+      await login({ email: ANA.email, password: ANA.password }).expect(200);
+    });
+
+    it('un bloqueo expirado da otra vez los intentos completos', async () => {
+      await register();
+      for (let i = 0; i < 5; i++) {
+        await login({ email: ANA.email, password: 'Wrong123' }).expect(401);
+      }
+      await prisma.user.update({
+        where: { email: ANA.email },
+        data: { lockedUntil: new Date(Date.now() - 1000) },
+      });
+      for (let i = 0; i < 4; i++) {
+        await login({ email: ANA.email, password: 'Wrong123' }).expect(401);
+      }
+      await login({ email: ANA.email, password: ANA.password }).expect(200);
+    });
+
+    it('cambio de password por admin desbloquea al usuario', async () => {
+      const reg = await register();
+      for (let i = 0; i < 5; i++) {
+        await login({ email: ANA.email, password: 'Wrong123' }).expect(401);
+      }
+      const adm = await login(ADMIN);
+      await http()
+        .patch('/api/users/' + reg.body.user.id)
+        .set(auth(adm.body.accessToken))
+        .send({ password: 'NewSecret1' })
+        .expect(200);
+      await login({ email: ANA.email, password: 'NewSecret1' }).expect(200);
+    });
+
+    it('la respuesta pública no expone campos de bloqueo', async () => {
+      const { body } = await register();
+      expect(body.user).not.toHaveProperty('failedLoginAttempts');
+      expect(body.user).not.toHaveProperty('lockedUntil');
+    });
+  });
+
   describe('docs', () => {
     it('GET /docs y /docs-json -> 200', async () => {
       await http().get('/docs').expect(200);

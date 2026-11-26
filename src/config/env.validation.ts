@@ -10,6 +10,15 @@ import {
   validateSync,
 } from 'class-validator';
 
+export const ENV_DEFAULTS = {
+  THROTTLE_LIMIT: 100,
+  THROTTLE_TTL_MS: 60000,
+  LOGIN_THROTTLE_LIMIT: 5,
+  REGISTER_THROTTLE_LIMIT: 3,
+  MAX_LOGIN_ATTEMPTS: 5,
+  LOCKOUT_MINUTES: 15,
+} as const;
+
 export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
@@ -35,6 +44,30 @@ export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   JWT_REFRESH_EXPIRES_IN: string = '7d';
+
+  @IsInt()
+  @Min(1)
+  THROTTLE_LIMIT: number = ENV_DEFAULTS.THROTTLE_LIMIT;
+
+  @IsInt()
+  @Min(1)
+  THROTTLE_TTL_MS: number = ENV_DEFAULTS.THROTTLE_TTL_MS;
+
+  @IsInt()
+  @Min(1)
+  LOGIN_THROTTLE_LIMIT: number = ENV_DEFAULTS.LOGIN_THROTTLE_LIMIT;
+
+  @IsInt()
+  @Min(1)
+  REGISTER_THROTTLE_LIMIT: number = ENV_DEFAULTS.REGISTER_THROTTLE_LIMIT;
+
+  @IsInt()
+  @Min(1)
+  MAX_LOGIN_ATTEMPTS: number = ENV_DEFAULTS.MAX_LOGIN_ATTEMPTS;
+
+  @IsInt()
+  @Min(1)
+  LOCKOUT_MINUTES: number = ENV_DEFAULTS.LOCKOUT_MINUTES;
 
   @IsEmail()
   ADMIN_EMAIL: string;

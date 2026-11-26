@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma, Role } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -12,7 +13,10 @@ import { publicUserSelect, type PublicUser } from './user.select.js';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   async create(
     dto: CreateUserDto,
@@ -79,6 +83,9 @@ export class UsersService {
       data.password = await argon2.hash(password);
       // Cambiar el password cierra las sesiones activas.
       data.refreshTokenHash = null;
+      // Un cambio de password también desbloquea la cuenta.
+      data.failedLoginAttempts = 0;
+      data.lockedUntil = null;
     }
     try {
       return await this.prisma.user.update({
@@ -104,6 +111,46 @@ export class UsersService {
       where: { id },
       data: { refreshTokenHash: hash },
     });
+  }
+
+  /**
+   * Registra un fallo de login de forma atómica. Un bloqueo ya expirado se
+   * considera desbloqueado: el contador reinicia antes de incrementar.
+   */
+  async registerFailedLogin(id: string): Promise<void> {
+    const max = this.config.get<number>('MAX_LOGIN_ATTEMPTS', 5);
+    const minutes = this.config.get<number>('LOCKOUT_MINUTES', 15);
+    const now = new Date();
+    await this.prisma.user.updateMany({
+      where: { id, lockedUntil: { lte: now } },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
+    });
+    const { failedLoginAttempts } = await this.prisma.user.update({
+      where: { id },
+      data: { failedLoginAttempts: { increment: 1 } },
+      select: { failedLoginAttempts: true },
+    });
+    if (failedLoginAttempts >= max) {
+      await this.prisma.user.updateMany({
+        where: { id, lockedUntil: null },
+        data: { lockedUntil: new Date(now.getTime() + minutes * 60_000) },
+      });
+    }
+  }
+
+  async resetLoginAttempts(id: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
+    });
+  }
+
+  async unlock(id: string): Promise<void> {
+    try {
+      await this.resetLoginAttempts(id);
+    } catch (e) {
+      throw this.mapError(e);
+    }
   }
 
   private mapError(e: unknown): unknown {

@@ -40,6 +40,7 @@ npm run start:dev
 | GET | `/api/users/:id` | ADMIN | Detalle |
 | PATCH | `/api/users/:id` | ADMIN | Actualiza `name`, `email`, `role`, `password` |
 | DELETE | `/api/users/:id` | ADMIN | Elimina (204) |
+| POST | `/api/users/:id/unlock` | ADMIN | Desbloquea una cuenta bloqueada (204) |
 
 Reglas de password: mínimo 8 caracteres, al menos una mayúscula y un número. Los emails se normalizan (trim + minúsculas). Un admin no puede borrarse ni quitarse el rol `ADMIN` a sí mismo (400).
 
@@ -69,6 +70,24 @@ curl -i -X POST $B/auth/logout -H "Authorization: Bearer $ACCESS"
 # Listado como admin
 curl -s "$B/users?page=1&limit=10" -H "Authorization: Bearer $ADMIN_ACCESS"
 ```
+
+## Protección contra fuerza bruta
+
+Dos capas independientes:
+
+1. **Throttling por IP** (`@nestjs/throttler`, `ThrottlerGuard` es el primer guard global). Al superar el límite responde 429 con el header `Retry-After`.
+2. **Bloqueo de cuenta**: tras `MAX_LOGIN_ATTEMPTS` fallos de password consecutivos la cuenta queda bloqueada `LOCKOUT_MINUTES` minutos. Mientras dura, `POST /auth/login` responde 429 ("Cuenta bloqueada temporalmente. Intenta más tarde.") con `Retry-After` en segundos, sin verificar el password. Un login correcto reinicia el contador; un bloqueo expirado cuenta como desbloqueado.
+
+| Variable | Default | Descripción |
+|---|---|---|
+| `THROTTLE_LIMIT` | 100 | Peticiones por IP y ventana (global) |
+| `THROTTLE_TTL_MS` | 60000 | Ventana global en ms |
+| `LOGIN_THROTTLE_LIMIT` | 5 | `POST /auth/login` por minuto e IP |
+| `REGISTER_THROTTLE_LIMIT` | 3 | `POST /auth/register` por minuto e IP |
+| `MAX_LOGIN_ATTEMPTS` | 5 | Fallos antes de bloquear la cuenta |
+| `LOCKOUT_MINUTES` | 15 | Duración del bloqueo |
+
+Un admin puede desbloquear una cuenta con `POST /api/users/:id/unlock` (204; 404 si no existe). Cambiar el password de un usuario con `PATCH /api/users/:id` también lo desbloquea.
 
 ## Tests
 
