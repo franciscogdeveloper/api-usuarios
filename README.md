@@ -1,5 +1,7 @@
 # API Usuarios
 
+[![CI](https://github.com/franciscogdeveloper/api-usuarios/actions/workflows/ci.yml/badge.svg)](https://github.com/franciscogdeveloper/api-usuarios/actions/workflows/ci.yml)
+
 API REST de usuarios con NestJS 12, TypeScript (strict), PostgreSQL 17, Prisma 6, autenticación JWT (access + refresh) y roles (`USER`, `ADMIN`).
 
 ## Requisitos
@@ -89,7 +91,23 @@ Dos capas independientes:
 
 Un admin puede desbloquear una cuenta con `POST /api/users/:id/unlock` (204; 404 si no existe). Cambiar el password de un usuario con `PATCH /api/users/:id` también lo desbloquea.
 
+## Integración continua
+
+El workflow `.github/workflows/ci.yml` (GitHub Actions) se ejecuta en cada push a `main` y en cada pull request hacia `main`. Levanta un PostgreSQL 17 como servicio y, en orden:
+
+1. instala dependencias (`npm ci`) y genera el cliente de Prisma;
+2. crea `.env.test` a partir de `.env.test.example`;
+3. ejecuta `npm run lint`, `npm run build`, `npm test` (unitarios) y `npm run test:e2e` (que aplica las migraciones en la base de test).
+
+Si cualquier paso falla, el check `Lint, build y tests` queda en rojo. Una ejecución nueva sobre la misma rama cancela la anterior.
+
 ## Tests
+
+Antes de correr los e2e, crea tu archivo de entorno de test (está en `.gitignore`):
+
+```bash
+cp .env.test.example .env.test
+```
 
 ```bash
 npm test            # unitarios (Vitest, mocks con vi.fn())
