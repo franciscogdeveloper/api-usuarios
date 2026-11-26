@@ -6,6 +6,7 @@ API REST de usuarios con NestJS 12, TypeScript (strict), PostgreSQL 17, Prisma 6
 
 ## Demo en vivo
 
+- **Frontend (React):** https://api-usuarios-web.vercel.app · [repositorio](https://github.com/franciscogdeveloper/api-usuarios-web)
 - **API:** https://api-usuarios-q70b.onrender.com/api
 - **Swagger:** https://api-usuarios-q70b.onrender.com/docs
 - **Health:** https://api-usuarios-q70b.onrender.com/api/health
