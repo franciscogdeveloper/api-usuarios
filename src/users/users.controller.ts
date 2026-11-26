@@ -9,6 +9,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
 } from '@nestjs/common';
 import {
@@ -74,6 +75,15 @@ export class UsersController {
       );
     }
     return this.users.update(id, dto);
+  }
+
+  @Post(':id/unlock')
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiNoContentResponse({ description: 'Cuenta desbloqueada' })
+  @ApiNotFoundResponse({ description: 'Usuario no encontrado' })
+  unlock(@Param('id', ParseUUIDPipe) id: string) {
+    return this.users.unlock(id);
   }
 
   @ApiNoContentResponse({ description: 'Usuario eliminado' })

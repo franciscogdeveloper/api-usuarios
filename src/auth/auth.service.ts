@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import type { JwtPayload } from '../common/types/jwt-payload.js';
 import { CreateUserDto } from '../users/dto/create-user.dto.js';
 import { UsersService } from '../users/users.service.js';
+import { AccountLockedException } from '../common/exceptions/account-locked.exception.js';
 import { LoginDto } from './dto/login.dto.js';
 
 export interface Tokens {
@@ -37,13 +38,21 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const found = await this.users.findByEmailWithSecrets(dto.email);
+    if (found?.lockedUntil && found.lockedUntil > new Date()) {
+      const seconds = Math.ceil(
+        (found.lockedUntil.getTime() - Date.now()) / 1000,
+      );
+      throw new AccountLockedException(seconds);
+    }
     const valid = await argon2.verify(
       found?.password ?? (await this.dummyHash),
       dto.password,
     );
     if (!found || !valid) {
+      if (found) await this.users.registerFailedLogin(found.id);
       throw new UnauthorizedException('Credenciales inválidas');
     }
+    await this.users.resetLoginAttempts(found.id);
     const tokens = await this.issueTokens(found);
     const user = await this.users.findById(found.id);
     return { ...tokens, user };
