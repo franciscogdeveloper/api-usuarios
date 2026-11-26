@@ -53,9 +53,9 @@ USER node
 EXPOSE 3000
 
 # Docker marca el contenedor como healthy/unhealthy consultando /api/health
-# (que a su vez comprueba la base de datos). Node 24 trae fetch, no hace falta curl.
+# (que a su vez comprueba la base de datos), en el PORT real (Render asigna uno). Node 24 trae fetch, no hace falta curl.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD node -e "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+    CMD node -e "fetch('http://localhost:'+(process.env.PORT||3000)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # El entrypoint aplica las migraciones y luego arranca la app (con exec, para
 # que Node sea el proceso principal y reciba las señales de parada).

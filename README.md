@@ -131,6 +131,27 @@ docker compose -f docker-compose.prod.yml down -v
 - **Arranque:** `docker-entrypoint.sh` ejecuta `prisma migrate deploy` y luego `node dist/main`. El `HEALTHCHECK` consulta `/api/health`, que comprueba la base de datos.
 - La base de datos no expone puertos al host; la API se publica en el 8080.
 
+## Despliegue en Render + Neon
+
+Plan gratuito: API en Render (Docker web service) y PostgreSQL en Neon. URL pública: _pendiente (`https://api-usuarios.onrender.com`, ajustar tras el primer deploy)_.
+
+1. **Neon:** crea un proyecto y copia la connection string **directa** (no la pooled, sin `-pooler` en el host) con `?sslmode=require`, p. ej. `postgresql://USER:PASSWORD@ep-xxxx.REGION.aws.neon.tech/neondb?sslmode=require`.
+2. **Render:** New > Blueprint > elige este repositorio. Lee `render.yaml`, que define el servicio `api-usuarios` (`runtime: docker`, plan free, health check en `/api/health`, auto-deploy solo si pasa CI) y genera los secretos JWT.
+3. **Variables a rellenar** en el dashboard de Render (`sync: false`): `DATABASE_URL` (la de Neon), `CORS_ORIGINS` (URL del frontend, p. ej. `https://mi-app.vercel.app`; varias separadas por comas; vacío = sin CORS), `ADMIN_EMAIL` y `ADMIN_PASSWORD`. `TRUST_PROXY=1` ya viene en el blueprint.
+4. **Migraciones:** se aplican solas al arrancar el contenedor (`prisma migrate deploy`).
+5. **Seed del admin desde tu máquina** (Render Free no tiene shell):
+   ```powershell
+   cp .env.neon.example .env.neon      # edita DATABASE_URL (Neon), ADMIN_EMAIL, ADMIN_PASSWORD
+   npm run db:seed:remote
+   ```
+6. **Probar:** `https://<tu-servicio>.onrender.com/api/health` y `https://<tu-servicio>.onrender.com/docs`.
+
+Notas:
+- **Cold start:** el plan free de Render duerme el servicio tras 15 minutos sin tráfico (la primera petición tarda ~30-60 s) y Neon suspende el cómputo tras 5 minutos de inactividad (la primera consulta añade un breve retraso).
+- **`TRUST_PROXY`** (default `0`; `1` en Render): número de proxies de confianza. Hace que Express tome la IP real de `X-Forwarded-For`, imprescindible para que el throttling por IP no cuente a todos los clientes como la IP del proxy.
+- **`CORS_ORIGINS`**: lista de orígenes permitidos. Sin cookies (`credentials: false`); el header `Retry-After` queda expuesto al frontend.
+- La app escucha en `0.0.0.0:$PORT` (Render inyecta `PORT`).
+
 ## Tests
 
 Antes de correr los e2e, crea tu archivo de entorno de test (está en `.gitignore`):

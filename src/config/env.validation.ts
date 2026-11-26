@@ -17,6 +17,8 @@ export const ENV_DEFAULTS = {
   REGISTER_THROTTLE_LIMIT: 3,
   MAX_LOGIN_ATTEMPTS: 5,
   LOCKOUT_MINUTES: 15,
+  TRUST_PROXY: 0,
+  CORS_ORIGINS: '',
 } as const;
 
 export class EnvironmentVariables {
@@ -68,6 +70,15 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(1)
   LOCKOUT_MINUTES: number = ENV_DEFAULTS.LOCKOUT_MINUTES;
+
+  // Número de proxies de confianza delante de la app (0 local, 1 en Render).
+  @IsInt()
+  @Min(0)
+  TRUST_PROXY: number = ENV_DEFAULTS.TRUST_PROXY;
+
+  // Orígenes permitidos por CORS, separados por comas. Vacío = sin CORS.
+  @IsString()
+  CORS_ORIGINS: string = ENV_DEFAULTS.CORS_ORIGINS;
 
   @IsEmail()
   ADMIN_EMAIL: string;

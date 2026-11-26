@@ -1,11 +1,11 @@
-import { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
 
 describe('Rate limiting (e2e)', () => {
-  let app: INestApplication;
+  let app: NestExpressApplication;
   const original = {
     LOGIN_THROTTLE_LIMIT: process.env.LOGIN_THROTTLE_LIMIT,
     REGISTER_THROTTLE_LIMIT: process.env.REGISTER_THROTTLE_LIMIT,
@@ -19,7 +19,7 @@ describe('Rate limiting (e2e)', () => {
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
-    app = moduleRef.createNestApplication();
+    app = moduleRef.createNestApplication<NestExpressApplication>();
     configureApp(app);
     await app.init();
   });

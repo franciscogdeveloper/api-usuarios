@@ -21,7 +21,8 @@
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "db:seed": "prisma db seed",
-    "db:seed:prod": "node --experimental-strip-types prisma/seed.ts"
+    "db:seed:prod": "node --experimental-strip-types prisma/seed.ts",
+    "db:seed:remote": "node --env-file=.env.neon --experimental-strip-types prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

@@ -1,0 +1,55 @@
+# Blueprint de Render (infraestructura como código).
+# Crea el servicio desde el dashboard: New > Blueprint > elige este repositorio.
+services:
+  - type: web
+    name: api-usuarios
+    # Render construye la imagen con el Dockerfile del repo.
+    runtime: docker
+    plan: free
+    # Misma zona que Neon (AWS us-east-2, Ohio) para minimizar la latencia
+    # API <-> base de datos. No se puede cambiar tras crear el servicio.
+    region: ohio
+    # Render llama a este endpoint para saber si el servicio está sano.
+    healthCheckPath: /api/health
+    # Despliega solo cuando los checks de CI (GitHub Actions) pasan.
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render está delante como proxy: confiar en 1 salto para ver la IP real.
+      - key: TRUST_PROXY
+        value: '1'
+      # Render inyecta PORT (10000 por defecto); la app y el healthcheck lo leen.
+      # Secretos aleatorios generados por Render al crear el Blueprint.
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      # sync: false => Render te pide el valor en el dashboard (no se guarda
+      # en el repo). Neon: connection string directa con ?sslmode=require.
+      - key: DATABASE_URL
+        sync: false
+      # URL(s) del frontend separadas por comas, p. ej. https://mi-app.vercel.app
+      - key: CORS_ORIGINS
+        sync: false
+      # Credenciales del admin que crea el seed (se ejecuta desde tu máquina).
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: THROTTLE_LIMIT
+        value: '100'
+      - key: THROTTLE_TTL_MS
+        value: '60000'
+      - key: LOGIN_THROTTLE_LIMIT
+        value: '5'
+      - key: REGISTER_THROTTLE_LIMIT
+        value: '3'
+      - key: MAX_LOGIN_ATTEMPTS
+        value: '5'
+      - key: LOCKOUT_MINUTES
+        value: '15'
