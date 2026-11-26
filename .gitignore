@@ -4,6 +4,7 @@
 .env
 .env.test
 .env.prod
+.env.neon
 .env.*.local
 *.log
 .DS_Store
