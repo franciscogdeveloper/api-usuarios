@@ -4,6 +4,14 @@
 
 API REST de usuarios con NestJS 12, TypeScript (strict), PostgreSQL 17, Prisma 6, autenticación JWT (access + refresh) y roles (`USER`, `ADMIN`).
 
+## Demo en vivo
+
+- **API:** https://api-usuarios-q70b.onrender.com/api
+- **Swagger:** https://api-usuarios-q70b.onrender.com/docs
+- **Health:** https://api-usuarios-q70b.onrender.com/api/health
+
+> Desplegada en el plan gratuito de Render: si lleva un rato sin uso, la primera petición puede tardar 30-60 s mientras el servidor despierta.
+
 ## Requisitos
 
 - Node.js 24+
@@ -133,7 +141,7 @@ docker compose -f docker-compose.prod.yml down -v
 
 ## Despliegue en Render + Neon
 
-Plan gratuito: API en Render (Docker web service) y PostgreSQL en Neon. URL pública: _pendiente (`https://api-usuarios.onrender.com`, ajustar tras el primer deploy)_.
+Plan gratuito: API en Render (Docker web service) y PostgreSQL en Neon. URL pública: https://api-usuarios-q70b.onrender.com.
 
 1. **Neon:** crea un proyecto y copia la connection string **directa** (no la pooled, sin `-pooler` en el host) con `?sslmode=require`, p. ej. `postgresql://USER:PASSWORD@ep-xxxx.REGION.aws.neon.tech/neondb?sslmode=require`.
 2. **Render:** New > Blueprint > elige este repositorio. Lee `render.yaml`, que define el servicio `api-usuarios` (`runtime: docker`, plan free, health check en `/api/health`, auto-deploy solo si pasa CI) y genera los secretos JWT.
