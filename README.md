@@ -101,6 +101,36 @@ El workflow `.github/workflows/ci.yml` (GitHub Actions) se ejecuta en cada push 
 
 Si cualquier paso falla, el check `Lint, build y tests` queda en rojo. Una ejecución nueva sobre la misma rama cancela la anterior.
 
+## Despliegue con Docker
+
+El `Dockerfile` es multi-stage y `docker-compose.prod.yml` levanta la API junto a su PostgreSQL (proyecto `api-usuarios-prod`, separado del compose de desarrollo).
+
+```bash
+# 1) Crear .env.prod (ignorado por git) y reemplazar cada CHANGE_ME
+cp .env.prod.example .env.prod
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"   # úsalo para secretos y POSTGRES_PASSWORD
+# (POSTGRES_PASSWORD debe coincidir con el de DATABASE_URL)
+
+# 2) Construir y levantar (las migraciones se aplican al arrancar el contenedor)
+docker compose -f docker-compose.prod.yml up -d --build
+
+# 3) Crear/actualizar el admin inicial (ADMIN_EMAIL / ADMIN_PASSWORD de .env.prod)
+docker compose -f docker-compose.prod.yml exec api npm run db:seed:prod
+
+# 4) Probar
+curl http://localhost:8080/api/health     # {"status":"ok","db":"up"}
+# Swagger: http://localhost:8080/docs
+
+# Apagar (y borrar el volumen de datos con -v)
+docker compose -f docker-compose.prod.yml down -v
+```
+
+- **Multi-stage:** `deps` instala todo, `build` compila TypeScript, `prod-deps` instala solo dependencias de producción y `runtime` copia únicamente `dist/`, `node_modules` de producción, `prisma/` y `package.json`. La imagen final no lleva TypeScript, tests ni herramientas de desarrollo.
+- **Debian slim, no alpine:** Prisma y argon2 usan binarios nativos para glibc; así se evitan problemas con musl.
+- **Usuario no root:** el contenedor corre como `node`, con privilegios mínimos.
+- **Arranque:** `docker-entrypoint.sh` ejecuta `prisma migrate deploy` y luego `node dist/main`. El `HEALTHCHECK` consulta `/api/health`, que comprueba la base de datos.
+- La base de datos no expone puertos al host; la API se publica en el 8080.
+
 ## Tests
 
 Antes de correr los e2e, crea tu archivo de entorno de test (está en `.gitignore`):

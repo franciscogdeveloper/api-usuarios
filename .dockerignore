@@ -1,0 +1,14 @@
+# Todo lo que no debe entrar al contexto de build: acelera el build y evita
+# filtrar secretos (.env*) o archivos de desarrollo a la imagen.
+node_modules
+dist
+.git
+.github
+coverage
+test
+.env*
+*.md
+.agents
+.claude
+*.tsbuildinfo
+docker-compose*.yml
